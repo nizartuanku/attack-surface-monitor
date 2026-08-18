@@ -1,0 +1,7 @@
+/asm
+*.db
+license.key
+asm-license.key
+issuer.key
+dist/
+node_modules/
