@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel</title>
+<style>
+  /* Design tokens — dark-first (security ops aesthetic), light via media query.
+     Status colors from the validated reference palette; never color alone —
+     every badge carries its text label. */
+  :root {
+    color-scheme: dark;
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --surface-2: #242422;
+    --border:    #34342f;
+    --text-1:    #ffffff;
+    --text-2:    #c3c2b7;
+    --text-3:    #8a897f;
+    --critical:  #d03b3b;
+    --serious:   #ec835a;
+    --warning:   #fab219;
+    --good:      #0ca30c;
+    --accent:    #3987e5;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --surface-0: #f4f4f2;
+      --surface-1: #fcfcfb;
+      --surface-2: #ffffff;
+      --border:    #e2e1da;
+      --text-1:    #0b0b0b;
+      --text-2:    #52514e;
+      --text-3:    #8a897f;
+      --accent:    #2a78d6;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--surface-0); color: var(--text-1);
+    max-width: 1080px; margin: 0 auto; padding: 24px 20px 64px;
+  }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+  .tier {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--accent); border: 1px solid var(--accent);
+    padding: 2px 10px; border-radius: 999px;
+  }
+  .notice {
+    margin: 12px 0; padding: 10px 14px; border-radius: var(--radius);
+    background: color-mix(in srgb, var(--warning) 12%, var(--surface-1));
+    border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+    color: var(--text-1); font-size: 14px;
+  }
+  .muted { color: var(--text-3); }
+
+  /* Decisions row — stat tiles (not a chart; a headline number per state). */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 20px 0 28px; }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .tile .num { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .lbl { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; display: flex; align-items: center; gap: 7px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .tile.ok .num { color: var(--good); }
+
+  section { margin-bottom: 34px; }
+  h2 { font-size: 15px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--text-2); margin-bottom: 12px; }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  /* Findings — worst first; remediation is part of the row, not hidden. */
+  .finding { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .finding:last-child { border-bottom: none; }
+  .frow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .05em;
+    padding: 2px 8px; border-radius: 5px; color: #fff;
+  }
+  .badge.critical { background: var(--critical); }
+  .badge.high     { background: var(--serious); }
+  .badge.medium   { background: var(--warning); color: #1a1a19; }
+  .badge.low, .badge.info { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border); }
+  .badge.resolved { background: var(--good); }
+  .badge.acknowledged { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border); }
+  .ftarget { font-weight: 600; }
+  .ftitle { color: var(--text-2); }
+  .fix { margin-top: 6px; font-size: 14px; color: var(--text-2); }
+  .fix b { color: var(--text-1); font-weight: 600; }
+  .factions { margin-top: 8px; display: flex; gap: 8px; }
+  .factions button, .evbtn {
+    font-size: 12.5px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+    background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border);
+  }
+  .factions button:hover, .evbtn:hover { color: var(--text-1); }
+  .evidence {
+    margin-top: 8px; padding: 10px 12px; border-radius: 6px;
+    background: var(--surface-0); border: 1px solid var(--border);
+    font: 12.5px/1.6 ui-monospace, monospace; color: var(--text-2);
+    white-space: pre-wrap; word-break: break-all; display: none;
+  }
+  .allclear { padding: 28px 16px; text-align: center; color: var(--text-2); }
+  .allclear .big { font-size: 26px; }
+
+  /* Targets & settings */
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: none; }
+  .row .grow { flex: 1; font-variant-numeric: tabular-nums; }
+  form.add { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+  input[type=text] {
+    flex: 1; padding: 8px 12px; border-radius: 7px; font-size: 14px;
+    background: var(--surface-0); color: var(--text-1); border: 1px solid var(--border);
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  button.primary {
+    padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer;
+    background: var(--accent); color: #fff; font-weight: 600; font-size: 14px;
+  }
+  button.primary:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost {
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    background: transparent; color: var(--text-3); border: 1px solid var(--border);
+  }
+  button.ghost:hover { color: var(--critical); border-color: var(--critical); }
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .err { color: var(--critical); font-size: 13.5px; margin-top: 8px; }
+  .okmsg { color: var(--good); font-size: 13.5px; margin-top: 8px; }
+  footer { margin-top: 40px; font-size: 12.5px; color: var(--text-3); }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="product">Sentinel</h1>
+    <span class="tier" id="tier">…</span>
+    <span class="muted" id="targetcount"></span>
+  </header>
+  <div id="notice" class="notice" style="display:none"></div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <section>
+    <div class="toolbar">
+      <h2 style="margin:0">Findings</h2>
+      <button class="primary" id="scanbtn" onclick="scanNow()">Scan now</button>
+    </div>
+    <div class="card" id="findings"><div class="allclear muted">Loading…</div></div>
+  </section>
+
+  <section id="verifysection" style="display:none">
+    <h2>Domain verification</h2>
+    <div class="card" id="verify"></div>
+  </section>
+
+  <section>
+    <h2 id="targetshdr">Targets</h2>
+    <div class="card">
+      <div id="targets"></div>
+      <form class="add" onsubmit="return addTarget(event)">
+        <input type="text" id="newtarget" placeholder="example.com or example.com:8443" autocomplete="off">
+        <button class="primary">Add</button>
+      </form>
+    </div>
+    <div id="targeterr" class="err"></div>
+  </section>
+
+  <section>
+    <h2>License</h2>
+    <div class="card">
+      <div class="row"><span class="grow" id="licinfo">Free edition</span></div>
+      <form class="add" onsubmit="return setLicense(event)">
+        <input type="text" id="lickey" placeholder="Paste your license key (SNTL1-…)" autocomplete="off">
+        <button class="primary">Activate</button>
+      </form>
+    </div>
+    <div id="licmsg"></div>
+  </section>
+
+  <footer>Self-hosted. Your data never leaves this machine.</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (url, opts) => fetch(url, opts).then(async r => {
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || r.statusText);
+  return body;
+});
+
+// Severity metadata: color + label always travel together (never color alone).
+const SEV = [
+  ["critical", "Critical", "var(--critical)"],
+  ["high",     "High",     "var(--serious)"],
+  ["medium",   "Medium",   "var(--warning)"],
+  ["low",      "Low",      "var(--text-3)"],
+];
+const sevRank = s => ({critical:4, high:3, medium:2, low:1, info:0}[s] ?? 0);
+
+async function refresh() {
+  try {
+    const [sum, findings, targets, verification] = await Promise.all([
+      j("/api/summary"), j("/api/findings"), j("/api/targets"), j("/api/verification"),
+    ]);
+    render(sum, findings, targets);
+    renderVerification(verification);
+  } catch (e) { /* transient — next tick retries */ }
+}
+
+// Verification panel: shown only when the product gates on ownership AND there
+// are pending domains. CertWatch (no verify store) → applicable:false → hidden.
+function renderVerification(v) {
+  const section = $("verifysection");
+  const pending = (v.applicable ? v.challenges : []).filter(c => c.state !== "verified");
+  if (!pending.length) { section.style.display = "none"; return; }
+  section.style.display = "";
+  $("verify").innerHTML = pending.map(c => `
+    <div class="finding">
+      <div class="frow">
+        <span class="badge medium">PENDING</span>
+        <span class="ftarget">${esc(c.domain)}</span>
+        <span class="ftitle">not verified — scanning paused until you prove ownership</span>
+      </div>
+      <div class="fix" style="margin-top:10px">Add <b>either</b> proof, then it verifies automatically on the next scan:</div>
+      <div class="evidence" style="display:block;margin-top:8px">DNS TXT record
+  name:  ${esc(c.dns_record)}
+  value: ${esc(c.dns_value)}
+
+— or — HTTP file
+  url:      ${esc(c.http_url)}
+  contents: ${esc(c.http_contents)}</div>
+    </div>`).join("");
+}
+
+function render(sum, findings, targets) {
+  $("product").textContent = sum.product;
+  $("tier").textContent = sum.tier.toUpperCase();
+  $("targetcount").textContent =
+    sum.targets + (sum.max_targets ? "/" + sum.max_targets : "") + " target" + (sum.targets === 1 ? "" : "s");
+  $("notice").style.display = sum.notice ? "" : "none";
+  $("notice").textContent = sum.notice || "";
+  $("scanbtn").style.display = sum.can_scan_now ? "" : "none";
+  if (sum.target_kind === "domain") {
+    $("newtarget").placeholder = "example.com";
+    $("targetshdr").textContent = "Domains";
+  }
+
+  // Decision tiles: the worst news first; all-clear is a positive statement.
+  const tiles = SEV.map(([key, label, color]) => {
+    const n = sum.counts[key] || 0;
+    return `<div class="tile"><div class="lbl"><span class="dot" style="background:${color}"></span>${label}</div>
+            <div class="num">${n}</div></div>`;
+  }).join("");
+  $("tiles").innerHTML = tiles;
+
+  // Findings list — open + acknowledged + fresh resolved, worst first.
+  const visible = findings
+    .filter(f => f.status !== "suppressed")
+    .sort((a, b) => (b.status === "open") - (a.status === "open") || sevRank(b.severity) - sevRank(a.severity));
+  if (!visible.length) {
+    $("findings").innerHTML =
+      `<div class="allclear"><div class="big">✅</div>All clear — nothing needs your attention.</div>`;
+  } else {
+    $("findings").innerHTML = visible.map(f => `
+      <div class="finding">
+        <div class="frow">
+          <span class="badge ${f.status === "resolved" ? "resolved" : f.severity}">
+            ${f.status === "resolved" ? "RESOLVED" : f.severity.toUpperCase()}</span>
+          ${f.status === "acknowledged" ? '<span class="badge acknowledged">ACK</span>' : ""}
+          <span class="ftarget">${esc(f.target)}</span>
+          <span class="ftitle">${esc(f.title)}</span>
+        </div>
+        ${f.status !== "resolved" ? `<div class="fix"><b>Fix:</b> ${esc(f.remediation)}</div>` : ""}
+        <div class="factions">
+          ${f.status === "open" ? `<button onclick="setStatus('${f.fingerprint}','acknowledged')">Acknowledge</button>` : ""}
+          ${f.status !== "resolved" ? `<button onclick="setStatus('${f.fingerprint}','suppressed')">Suppress</button>` : ""}
+          ${f.evidence ? `<button class="evbtn" onclick="toggleEv(this)">Details</button>` : ""}
+        </div>
+        ${f.evidence ? `<div class="evidence">${esc(JSON.stringify(f.evidence, null, 2))}</div>` : ""}
+      </div>`).join("");
+  }
+
+  // Targets
+  const kind = sum.target_kind === "domain" ? "domain" : "host";
+  $("targets").innerHTML = targets.length
+    ? targets.map(t => `
+        <div class="row"><span class="grow">${esc(t.Canonical)}</span>
+        <button class="ghost" onclick="removeTarget('${esc(t.Canonical)}')">Remove</button></div>`).join("")
+    : `<div class="row muted">No ${kind}s yet — add your first ${kind} below.</div>`;
+
+  // Free-edition license line, derived from the product's own limits.
+  if (sum.tier === "free") {
+    const cap = sum.max_targets ? `${sum.max_targets} ${kind}${sum.max_targets === 1 ? "" : "s"}` : `unlimited ${kind}s`;
+    $("licinfo").textContent = `Free edition — up to ${cap}, webhook notifications.`;
+  }
+}
+
+async function refreshLicense() {
+  try {
+    const lic = await j("/api/license");
+    // Only override for a licensed key; the free line is set by render() from
+    // the product's own limits (targets vs configs vs sources, real retention).
+    if (lic.email) {
+      $("licinfo").textContent =
+        `${lic.tier.toUpperCase()} — licensed to ${lic.email}, valid until ${new Date(lic.expires_at).toLocaleDateString()}`;
+    }
+  } catch (e) {}
+}
+
+async function addTarget(ev) {
+  ev.preventDefault();
+  $("targeterr").textContent = "";
+  try {
+    await j("/api/targets", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ target: $("newtarget").value }) });
+    $("newtarget").value = "";
+    refresh();
+  } catch (e) { $("targeterr").textContent = e.message; }
+  return false;
+}
+
+async function removeTarget(canonical) {
+  await j("/api/targets?canonical=" + encodeURIComponent(canonical), { method: "DELETE" });
+  refresh();
+}
+
+async function setStatus(fingerprint, status) {
+  await j("/api/findings/status", { method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ fingerprint, status }) });
+  refresh();
+}
+
+async function scanNow() {
+  const b = $("scanbtn"); b.disabled = true; b.textContent = "Scanning…";
+  try { await j("/api/scan", { method: "POST" }); } catch (e) {}
+  b.disabled = false; b.textContent = "Scan now";
+  refresh();
+}
+
+async function setLicense(ev) {
+  ev.preventDefault();
+  $("licmsg").textContent = ""; $("licmsg").className = "";
+  try {
+    const res = await j("/api/license", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ key: $("lickey").value }) });
+    $("licmsg").textContent = "Activated: " + res.tier.toUpperCase();
+    $("licmsg").className = "okmsg";
+    $("lickey").value = "";
+    refresh(); refreshLicense();
+  } catch (e) { $("licmsg").textContent = e.message; $("licmsg").className = "err"; }
+  return false;
+}
+
+function toggleEv(btn) {
+  const ev = btn.closest(".finding").querySelector(".evidence");
+  ev.style.display = ev.style.display === "block" ? "none" : "block";
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+refresh(); refreshLicense();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
