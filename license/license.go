@@ -178,6 +178,18 @@ type Activation struct {
 // the product runs under. It NEVER returns an error: the philosophy is that a
 // licensing problem downgrades gracefully to free, it never stops the product.
 func Activate(pub ed25519.PublicKey, product, key string, now time.Time) Activation {
+	// No usable issuer key is baked into this build — it is the free/OSS edition
+	// and cannot verify anything. Say so plainly instead of reporting the user's
+	// key as invalid: a legitimately purchased key dropped next to this binary
+	// is not the user's mistake, and blaming the key sends them to support.
+	if len(pub) != ed25519.PublicKeySize {
+		act := Activation{Tier: TierFree, Limits: TierLimits[TierFree]}
+		if strings.TrimSpace(key) != "" {
+			act.Notice = "This is the free edition, which cannot activate license keys. " +
+				"Download the licensed build to use your key — your key is fine."
+		}
+		return act
+	}
 	if strings.TrimSpace(key) == "" {
 		return Activation{Tier: TierFree, Limits: TierLimits[TierFree]}
 	}

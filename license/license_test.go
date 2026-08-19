@@ -114,7 +114,10 @@ func TestActivate_EmptyPubkeyDoesNotPanic(t *testing.T) {
 			t.Fatalf("empty/short pubkey must resolve to free tier, got %s", a.Tier)
 		}
 		if a.Notice == "" {
-			t.Fatal("a real key that can't be verified should surface a notice")
+			t.Fatal("a build with no usable issuer key should say so when a key is present")
+		}
+		if strings.Contains(a.Notice, "not valid") {
+			t.Fatalf("notice must not blame the user's key, got %q", a.Notice)
 		}
 	}
 }
