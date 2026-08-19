@@ -49,7 +49,7 @@ Open `http://127.0.0.1:8423`, add a domain, follow the verification instructions
 | Support | Community | Email | Priority |
 
 Pro ($29/mo) and Team ($99/mo) licenses, each with a 14-day free trial:
-**https://whop.com/nizar-tuanku/attack-surface-monitor**
+**https://whop.com/nizar-tuanku/attack-surface-monitor?utm_source=github**
 
 A license key activates instantly and validates **offline** — ASM never needs to reach our servers. An expired key never bricks the product; it simply returns to free limits.
 
@@ -94,4 +94,4 @@ Available on every tier, free included.
 ## Built by
 
 A practising network security engineer. Part of the Sentinel line of self-hosted security tools.
-Watch your certificates too? See [CertWatch](https://whop.com/nizar-tuanku/certwatch-tls-monitor).
+Watch your certificates too? See [CertWatch](https://whop.com/nizar-tuanku/certwatch-tls-monitor?utm_source=github).
