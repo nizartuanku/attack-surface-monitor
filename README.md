@@ -2,6 +2,12 @@
 
 **Self-hosted attack surface discovery & exposure monitoring — it sees you the way an attacker does.**
 
+![Attack Surface Monitor showing a database port that appeared between two sweeps, and an old service that closed itself](docs/demo.gif)
+
+*Real run: a steady-state sweep with ports 80 and 8080 open. A deploy opens 5432 and takes 8080
+away — and the next sweep raises PostgreSQL as CRITICAL and marks the old port resolved on its own.
+Nobody edited an inventory; the list only moves when the attack surface does.*
+
 You can't defend what you don't know is exposed. Attack Surface Monitor discovers your internet-facing assets and flags what's dangerously open, from your own server:
 
 - **Passive discovery** — finds subdomains via Certificate Transparency logs and DNS; keeps only the names that currently resolve as live assets
