@@ -62,6 +62,28 @@ By verifying a domain and scanning it, you warrant that you own it or are explic
 - Linux (Ubuntu 22.04+ recommended), amd64
 - Outbound network access to the domains you monitor and to Certificate Transparency (crt.sh) for passive discovery
 
+## Working with the other Sentinel tools
+
+Every tool in the line can emit its findings as syslog, which is how they feed
+each other:
+
+```bash
+asm -syslog loglight.internal:5514        # udp by default
+asm -syslog loglight.internal:5514 -syslog-network tcp
+```
+
+One RFC 3164 frame per finding, severity mapped onto the syslog severity so
+your collector's existing routing rules still work, and the source address
+carried in `src=` when the finding has one.
+
+Point it at [Loglight](https://github.com/nizartuanku/loglight) and its findings
+land next to Loglight's own detections: a Decoy trip from an address Loglight
+already saw port-scanning is raised as one critical incident with the timeline
+attached, rather than two alerts you have to join up yourself. Any other syslog
+collector works too — there is nothing Sentinel-specific about the format.
+
+Available on every tier, free included.
+
 ## Honest limits
 
 - ASM finds **exposure**, not exploitable vulnerabilities — pair it with a vulnerability scanner for the "is it exploitable?" question.
