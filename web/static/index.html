@@ -212,7 +212,7 @@ async function refresh() {
 }
 
 // Verification panel: shown only when the product gates on ownership AND there
-// are pending domains. CertWatch (no verify store) → applicable:false → hidden.
+// are pending domains. CertLight (no verify store) → applicable:false → hidden.
 function renderVerification(v) {
   const section = $("verifysection");
   const pending = (v.applicable ? v.challenges : []).filter(c => c.state !== "verified");
