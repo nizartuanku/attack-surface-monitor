@@ -62,7 +62,7 @@ By verifying a domain and scanning it, you warrant that you own it or are explic
 - Linux (Ubuntu 22.04+ recommended), amd64
 - Outbound network access to the domains you monitor and to Certificate Transparency (crt.sh) for passive discovery
 
-## Working with the other Sentinel tools
+## Working with the other Hexward tools
 
 Every tool in the line can emit its findings as syslog, which is how they feed
 each other:
@@ -80,7 +80,7 @@ Point it at [Loglight](https://github.com/nizartuanku/loglight) and its findings
 land next to Loglight's own detections: a Decoy trip from an address Loglight
 already saw port-scanning is raised as one critical incident with the timeline
 attached, rather than two alerts you have to join up yourself. Any other syslog
-collector works too — there is nothing Sentinel-specific about the format.
+collector works too — there is nothing Hexward-specific about the format.
 
 Available on every tier, free included.
 
@@ -93,5 +93,5 @@ Available on every tier, free included.
 
 ## Built by
 
-A practising network security engineer. Part of the Sentinel line of self-hosted security tools.
-Watch your certificates too? See [CertWatch](https://whop.com/nizar-tuanku/certwatch-tls-monitor?utm_source=github).
+A practising network security engineer. Part of the Hexward line of self-hosted security tools.
+Watch your certificates too? See [CertLight](https://whop.com/nizar-tuanku/certlight-tls-monitor?utm_source=github).
