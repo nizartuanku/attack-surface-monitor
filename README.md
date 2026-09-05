@@ -93,5 +93,5 @@ Available on every tier, free included.
 
 ## Built by
 
-A practising network security engineer. Part of the Hexward line of self-hosted security tools.
+Nizar Tuanku — Cybersecurity. Part of the Hexward line of self-hosted security tools.
 Watch your certificates too? See [CertLight](https://whop.com/nizar-tuanku/certlight-tls-monitor?utm_source=github).
