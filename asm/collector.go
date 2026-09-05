@@ -130,6 +130,21 @@ func (a *ASM) Collect(ctx context.Context, t core.Target) ([]core.Finding, error
 	}
 
 	var out []core.Finding
+
+	// Coverage caveat before the inventory: a wildcard certificate is logged in
+	// Certificate Transparency as the wildcard itself, never as the hostnames it
+	// protects. Any subdomain served by it is therefore invisible to CT-based
+	// discovery, and the inventory below may be shorter than the real attack
+	// surface. Saying so is the difference between a short list and a false
+	// all-clear.
+	for _, w := range assets.Wildcards {
+		out = append(out, a.finding(domain, "asm.coverage-wildcard", w,
+			sevInfo,
+			fmt.Sprintf("Coverage limit: %s covers this domain, so its subdomains are not listed in Certificate Transparency", w),
+			"Certificate Transparency records the wildcard, not the hostnames it protects, so a subdomain served by this certificate cannot be discovered from CT and may be missing from the inventory. Check the assets listed here against the hosts you know you run under this domain; a host that should be discoverable can be given its own certificate.",
+			map[string]any{"wildcard": w, "root": domain, "limit": "certificate-transparency"}))
+	}
+
 	for _, host := range assets.Hostnames {
 		// Inventory: each live asset is an info finding, so a NEW subdomain shows
 		// up in the diff and a REMOVED one auto-resolves.

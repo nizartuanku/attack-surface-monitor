@@ -28,6 +28,13 @@ type Assets struct {
 	// Sources notes which discovery methods actually contributed, so the UI can
 	// be honest about coverage (e.g. "CT unavailable, DNS only").
 	Sources []string
+	// Wildcards are wildcard names seen in Certificate Transparency for this
+	// domain (e.g. "*.example.com"), kept untrimmed. A wildcard certificate is
+	// logged as the wildcard, never as the hostnames it protects, so every
+	// subdomain served by it is invisible to CT-based discovery. Recording them
+	// lets the report state that limit instead of presenting a short inventory
+	// as if it were the whole attack surface.
+	Wildcards []string
 }
 
 // ctDNSDiscoverer is the production Discoverer: Certificate Transparency (via
@@ -52,7 +59,8 @@ func (d *ctDNSDiscoverer) Discover(ctx context.Context, root string) (Assets, er
 	var sources []string
 
 	// Certificate Transparency: names that ever had a cert issued.
-	if names, err := d.ctNames(ctx, root); err == nil && len(names) > 0 {
+	names, wildcards, err := d.ctNames(ctx, root)
+	if err == nil && len(names) > 0 {
 		sources = append(sources, "certificate-transparency")
 		for _, n := range names {
 			candidates[n] = struct{}{}
@@ -83,28 +91,40 @@ func (d *ctDNSDiscoverer) Discover(ctx context.Context, root string) (Assets, er
 		out = append(out, n)
 	}
 	sort.Strings(out)
-	return Assets{Hostnames: out, Sources: sources}, nil
+	sort.Strings(wildcards)
+	return Assets{Hostnames: out, Sources: sources, Wildcards: wildcards}, nil
 }
 
 // ctNames queries crt.sh for subject/SAN names of certs issued for the domain.
-func (d *ctDNSDiscoverer) ctNames(ctx context.Context, root string) ([]string, error) {
+// It returns the concrete names and, separately, the wildcard names it saw. The
+// wildcards are reported rather than silently folded into the base name,
+// because each one marks a set of hostnames that CT cannot reveal.
+func (d *ctDNSDiscoverer) ctNames(ctx context.Context, root string) (names, wildcards []string, err error) {
 	url := fmt.Sprintf("https://crt.sh/?q=%%25.%s&output=json", root)
 	body, err := d.httpGet(ctx, url)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var rows []struct {
 		NameValue string `json:"name_value"`
 	}
 	if err := json.Unmarshal([]byte(body), &rows); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	seen := map[string]struct{}{}
-	var names []string
+	seenWild := map[string]struct{}{}
 	for _, r := range rows {
 		for _, n := range strings.Split(r.NameValue, "\n") {
 			n = strings.ToLower(strings.TrimSpace(n))
-			n = strings.TrimPrefix(n, "*.") // wildcard → base name
+			if strings.HasPrefix(n, "*.") {
+				if base := strings.TrimSuffix(n, "."); strings.HasSuffix(base, root) {
+					if _, dup := seenWild[n]; !dup {
+						seenWild[n] = struct{}{}
+						wildcards = append(wildcards, n)
+					}
+				}
+				n = strings.TrimPrefix(n, "*.") // wildcard → base name
+			}
 			if n == "" || strings.ContainsAny(n, " ") || !strings.HasSuffix(n, root) {
 				continue
 			}
@@ -115,7 +135,7 @@ func (d *ctDNSDiscoverer) ctNames(ctx context.Context, root string) ([]string, e
 			names = append(names, n)
 		}
 	}
-	return names, nil
+	return names, wildcards, nil
 }
 
 // --- default network helpers (injected out in tests) ------------------------
