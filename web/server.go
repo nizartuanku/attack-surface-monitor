@@ -272,7 +272,7 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 	current := len(s.Scheduler.ListTargets(s.Module.ID))
 	if !canAdd(s.effLimits(), current) {
 		httpError(w, http.StatusPaymentRequired,
-			"target limit reached for your tier — upgrade to add more")
+			"target limit reached for your tier — Pro and Team: https://whop.com/nizar-tuanku/attack-surface-monitor?utm_source=app")
 		return
 	}
 	t, err := s.Scheduler.AddTarget(s.Module.ID, req.Target)
@@ -307,7 +307,7 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleScanNow(w http.ResponseWriter, r *http.Request) {
 	if !s.effLimits().ScanNow {
 		httpError(w, http.StatusPaymentRequired,
-			"on-demand scans are a Pro feature — scheduled scans continue as normal")
+			"on-demand scans are a Pro feature — scheduled scans continue as normal. Pro and Team: https://whop.com/nizar-tuanku/attack-surface-monitor?utm_source=app")
 		return
 	}
 	if err := s.Scheduler.ScanNow(r.Context(), s.Module.ID); err != nil {
