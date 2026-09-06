@@ -29,7 +29,8 @@ Runs as a single binary or container on your infrastructure. **Your asset list a
 ## Quick start
 
 ```bash
-# Docker
+# Docker — build the image from this repo first; there is no published asm image
+docker build -t asm .
 docker run -d -p 127.0.0.1:8423:8423 -v asm-data:/data asm
 
 # Or the bare binary
@@ -47,6 +48,8 @@ Open `http://127.0.0.1:8423`, add a domain, follow the verification instructions
 | Notifications | Webhook | + Email, Slack, Telegram | + PagerDuty, MS Teams |
 | History | 14 days | 1 year | Unlimited |
 | Support | Community | Email | Priority |
+
+**Whop sells paid licences only.** Free: github.com/nizartuanku/attack-surface-monitor — this repository is the free edition, Apache-2.0, no time limit; nothing on Whop is free, so try it here first.
 
 Pro ($29/mo) and Team ($99/mo) licenses, each with a 14-day free trial:
 **https://whop.com/nizar-tuanku/attack-surface-monitor?utm_source=github**
