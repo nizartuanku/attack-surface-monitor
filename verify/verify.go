@@ -40,9 +40,20 @@ const (
 )
 
 const (
-	tokenPrefix = "sentinel-verify="
-	dnsLabel    = "_sentinel-verify"
-	httpPath    = "/.well-known/sentinel-verify.txt"
+	tokenPrefix = "hexward-verify="
+	dnsLabel    = "_hexward-verify"
+	httpPath    = "/.well-known/hexward-verify.txt"
+)
+
+// Compatibility. These are the identifiers used before the Hexward rename.
+// Nothing new ever shows them — Instructions, the wizard and the docs only
+// print the names above — but Satisfied still accepts a challenge placed with
+// them, so a domain verified before the rename does not silently revert to
+// pending. Removed 1 March 2027, in the first major release after that date.
+const (
+	legacyTokenPrefix = "sentinel-verify="
+	legacyDNSLabel    = "_sentinel-verify"
+	legacyHTTPPath    = "/.well-known/sentinel-verify.txt"
 )
 
 // Challenge is the ownership proof a domain must satisfy.
@@ -65,6 +76,17 @@ func (c Challenge) HTTPURL() string { return "http://" + c.Domain + httpPath }
 
 // HTTPFileContents is what that file must contain.
 func (c Challenge) HTTPFileContents() string { return tokenPrefix + c.Token }
+
+// LegacyDNSRecordName, LegacyDNSRecordValue, LegacyHTTPURL and
+// LegacyHTTPFileContents are the pre-rename forms. They exist only so
+// Satisfied can keep accepting proofs placed before the rename; never show
+// them to a user. Removed 1 March 2027.
+func (c Challenge) LegacyDNSRecordName() string  { return legacyDNSLabel + "." + c.Domain }
+func (c Challenge) LegacyDNSRecordValue() string { return legacyTokenPrefix + c.Token }
+func (c Challenge) LegacyHTTPURL() string        { return "http://" + c.Domain + legacyHTTPPath }
+func (c Challenge) LegacyHTTPFileContents() string {
+	return legacyTokenPrefix + c.Token
+}
 
 // Instructions returns a human-readable, copy-pasteable summary for the UI.
 func (c Challenge) Instructions() string {
@@ -106,20 +128,31 @@ type Verifier struct {
 // returns an error for "not found" — only for a lookup that genuinely failed in
 // a way the caller might want to log. A false, nil result means "not yet".
 func (v Verifier) Satisfied(ctx context.Context, c Challenge) (bool, Method, error) {
-	want := c.DNSRecordValue()
+	// Either the current name or the pre-rename one counts, at either
+	// location, so nothing a user placed before the rename stops working.
+	wantDNS := map[string]bool{c.DNSRecordValue(): true, c.LegacyDNSRecordValue(): true}
+	wantHTTP := map[string]bool{c.HTTPFileContents(): true, c.LegacyHTTPFileContents(): true}
 
 	if v.LookupTXT != nil {
-		if records, err := v.LookupTXT(ctx, c.DNSRecordName()); err == nil {
+		for _, name := range []string{c.DNSRecordName(), c.LegacyDNSRecordName()} {
+			records, err := v.LookupTXT(ctx, name)
+			if err != nil {
+				continue
+			}
 			for _, r := range records {
-				if strings.TrimSpace(r) == want {
+				if wantDNS[strings.TrimSpace(r)] {
 					return true, MethodDNS, nil
 				}
 			}
 		}
 	}
 	if v.FetchHTTP != nil {
-		if body, err := v.FetchHTTP(ctx, c.HTTPURL()); err == nil {
-			if strings.TrimSpace(body) == c.HTTPFileContents() {
+		for _, url := range []string{c.HTTPURL(), c.LegacyHTTPURL()} {
+			body, err := v.FetchHTTP(ctx, url)
+			if err != nil {
+				continue
+			}
+			if wantHTTP[strings.TrimSpace(body)] {
 				return true, MethodHTTP, nil
 			}
 		}
