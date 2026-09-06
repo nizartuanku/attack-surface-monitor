@@ -21,11 +21,70 @@ func TestNewChallenge_NormalizesAndIssues(t *testing.T) {
 	if c.State != StatePending || c.Token == "" {
 		t.Fatalf("challenge malformed: %+v", c)
 	}
-	if !strings.HasPrefix(c.DNSRecordName(), "_sentinel-verify.") {
+	if !strings.HasPrefix(c.DNSRecordName(), "_hexward-verify.") {
 		t.Fatalf("bad DNS record name: %s", c.DNSRecordName())
 	}
-	if c.DNSRecordValue() != "sentinel-verify="+c.Token {
+	if c.DNSRecordValue() != "hexward-verify="+c.Token {
 		t.Fatalf("bad DNS value: %s", c.DNSRecordValue())
+	}
+	if c.HTTPURL() != "http://example.com/.well-known/hexward-verify.txt" {
+		t.Fatalf("bad HTTP URL: %s", c.HTTPURL())
+	}
+	// Nothing a new user reads may still say "sentinel".
+	if strings.Contains(strings.ToLower(c.Instructions()), "sentinel") {
+		t.Fatalf("instructions still show the pre-rename name:\n%s", c.Instructions())
+	}
+}
+
+// A challenge placed before the Hexward rename must keep verifying: the old
+// TXT label carrying the old value, and the old well-known path. Removed
+// together with the legacy identifiers on 1 March 2027.
+func TestSatisfied_LegacyDNSNameStillAccepted(t *testing.T) {
+	c, _ := NewChallenge("example.com", t0)
+	v := Verifier{
+		LookupTXT: func(ctx context.Context, name string) ([]string, error) {
+			if name != c.LegacyDNSRecordName() {
+				return nil, errors.New("nxdomain")
+			}
+			return []string{c.LegacyDNSRecordValue()}, nil
+		},
+	}
+	ok, method, err := v.Satisfied(context.Background(), c)
+	if err != nil || !ok || method != MethodDNS {
+		t.Fatalf("legacy DNS proof must still satisfy: ok=%v method=%v err=%v", ok, method, err)
+	}
+}
+
+func TestSatisfied_LegacyHTTPPathStillAccepted(t *testing.T) {
+	c, _ := NewChallenge("example.com", t0)
+	v := Verifier{
+		FetchHTTP: func(ctx context.Context, url string) (string, error) {
+			if url != c.LegacyHTTPURL() {
+				return "", errors.New("404")
+			}
+			return c.LegacyHTTPFileContents() + "\n", nil
+		},
+	}
+	ok, method, err := v.Satisfied(context.Background(), c)
+	if err != nil || !ok || method != MethodHTTP {
+		t.Fatalf("legacy HTTP proof must still satisfy: ok=%v method=%v err=%v", ok, method, err)
+	}
+}
+
+// A new-style record placed at the new label is the ordinary path.
+func TestSatisfied_NewDNSNameAccepted(t *testing.T) {
+	c, _ := NewChallenge("example.com", t0)
+	v := Verifier{
+		LookupTXT: func(ctx context.Context, name string) ([]string, error) {
+			if name != c.DNSRecordName() {
+				return nil, errors.New("nxdomain")
+			}
+			return []string{c.DNSRecordValue()}, nil
+		},
+	}
+	ok, method, err := v.Satisfied(context.Background(), c)
+	if err != nil || !ok || method != MethodDNS {
+		t.Fatalf("new DNS proof must satisfy: ok=%v method=%v err=%v", ok, method, err)
 	}
 }
 
@@ -65,10 +124,10 @@ func TestSatisfied_WrongTokenIsNotSatisfied(t *testing.T) {
 	c, _ := NewChallenge("example.com", t0)
 	v := Verifier{
 		LookupTXT: func(ctx context.Context, name string) ([]string, error) {
-			return []string{"sentinel-verify=the-wrong-token"}, nil
+			return []string{"hexward-verify=the-wrong-token", "sentinel-verify=the-wrong-token"}, nil
 		},
 		FetchHTTP: func(ctx context.Context, url string) (string, error) {
-			return "sentinel-verify=also-wrong", nil
+			return "hexward-verify=also-wrong", nil
 		},
 	}
 	ok, _, err := v.Satisfied(context.Background(), c)
