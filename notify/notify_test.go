@@ -192,9 +192,11 @@ func TestDispatcher_ReportsExhaustedRetries(t *testing.T) {
 func TestWebhookChannel_PayloadShape(t *testing.T) {
 	var gotBody []byte
 	var gotToken string
+	var gotLegacyToken string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotBody, _ = io.ReadAll(r.Body)
-		gotToken = r.Header.Get("X-Sentinel-Token")
+		gotToken = r.Header.Get("X-Hexward-Token")
+		gotLegacyToken = r.Header.Get("X-Sentinel-Token")
 	}))
 	defer srv.Close()
 
@@ -207,7 +209,12 @@ func TestWebhookChannel_PayloadShape(t *testing.T) {
 		t.Fatal(err)
 	}
 	if gotToken != "s3cret" {
-		t.Fatalf("missing auth header, got %q", gotToken)
+		t.Fatalf("missing X-Hexward-Token header, got %q", gotToken)
+	}
+	// Compatibility: receivers configured before the rename read the old
+	// header, so both must carry the same value until 1 March 2027.
+	if gotLegacyToken != "s3cret" {
+		t.Fatalf("missing compatibility X-Sentinel-Token header, got %q", gotLegacyToken)
 	}
 	var p map[string]any
 	if err := json.Unmarshal(gotBody, &p); err != nil {
