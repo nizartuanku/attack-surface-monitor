@@ -24,8 +24,11 @@ var httpClient = &http.Client{Timeout: 15 * time.Second}
 // edition's one channel: maximally composable, zero vendor lock.
 type WebhookChannel struct {
 	URL string
-	// Secret, when set, is sent as the X-Sentinel-Token header so receivers
-	// can authenticate the caller.
+	// Secret, when set, is sent as the X-Hexward-Token header so receivers
+	// can authenticate the caller. Compatibility: the pre-rename
+	// X-Sentinel-Token header carries the same value alongside it until
+	// 1 March 2027, so receivers configured before the rename keep working
+	// without being touched.
 	Secret string
 }
 
@@ -68,6 +71,8 @@ func (w *WebhookChannel) Send(ctx context.Context, d Digest) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if w.Secret != "" {
+		req.Header.Set("X-Hexward-Token", w.Secret)
+		// Compatibility header, removed 1 March 2027.
 		req.Header.Set("X-Sentinel-Token", w.Secret)
 	}
 	resp, err := httpClient.Do(req)
