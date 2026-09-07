@@ -64,7 +64,7 @@ func (a *ASM) Describe() core.ModuleInfo {
 	return core.ModuleInfo{
 		ID:              moduleID,
 		Name:            "Attack Surface Monitor",
-		Version:         "0.1.0",
+		Version:         "0.1.1",
 		TargetKind:      "domain",
 		DefaultInterval: 24 * time.Hour, // attack surface changes slowly; be polite
 		ResolveAfter:    2,              // network flaps happen — need 2 absent scans to resolve
