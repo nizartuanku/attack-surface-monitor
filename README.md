@@ -45,7 +45,7 @@ Open `http://127.0.0.1:8423`, add a domain, follow the verification instructions
 |---|---|---|---|
 | Monitored domains | 1 | 10 | Unlimited |
 | Scan interval | Weekly fixed | Custom + scan-now | Custom + scan-now |
-| Notifications | Webhook | + Email, Slack, Telegram | + PagerDuty, MS Teams |
+| Notifications | Webhook, syslog | + Email, Slack, Telegram | + PagerDuty, MS Teams |
 | History | 14 days | 1 year | Unlimited |
 | Support | Community | Email | Priority |
 
