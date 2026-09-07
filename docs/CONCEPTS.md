@@ -54,10 +54,10 @@ That sounds like a small change, right up until the day the thing that was added
 ## Try it yourself — 15 minutes
 The free Apache-2.0 edition on GitHub runs the same engine, one domain, with no time limit.
 ```
-curl -LO https://github.com/nizartuanku/attack-surface-monitor/releases/latest/download/asm-free-0.1.0-linux-amd64.tar.gz
+curl -LO https://github.com/nizartuanku/attack-surface-monitor/releases/latest/download/asm-free-0.1.1-linux-amd64.tar.gz
 curl -LO https://github.com/nizartuanku/attack-surface-monitor/releases/latest/download/SHA256SUMS
 sha256sum -c SHA256SUMS
-tar xzf asm-free-0.1.0-linux-amd64.tar.gz && ./asm
+tar xzf asm-free-0.1.1-linux-amd64.tar.gz && ./asm
 ```
 Open 127.0.0.1:8423, enter one domain you own, publish its verification TXT record, and see what comes back.
 If what comes back surprises you — that is rather the point.
