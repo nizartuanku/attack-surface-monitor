@@ -62,7 +62,39 @@ echo "Budget: ${BUDGET_SECONDS}s"
 # ---------------------------------------------------------------- 1. resolve
 step 1 "resolve the newest published release"
 RELEASE_JSON="${WORKDIR}/release.json"
-curl -fsSL "$API" -o "$RELEASE_JSON" || fail "cannot reach ${API}"
+API_HEADERS="${WORKDIR}/release.headers"
+: > "$API_HEADERS"
+
+# api.github.com allows 60 unauthenticated calls per hour per IP address. Once
+# that allowance is spent it answers 403 with X-RateLimit-Remaining: 0. That is
+# a busy machine, not a broken product, so name the limit instead of reporting
+# a generic "cannot reach" that reads like the release is missing.
+AUTH_ARGS=()
+API_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+[ -n "$API_TOKEN" ] && AUTH_ARGS=(-H "Authorization: Bearer ${API_TOKEN}")
+
+HTTP_CODE=$(curl -sSL --max-time 30 -D "$API_HEADERS" -o "$RELEASE_JSON" \
+              -w '%{http_code}' "${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"}" "$API" \
+              2>/dev/null || true)
+HTTP_CODE="${HTTP_CODE:-000}"
+
+if [ "$HTTP_CODE" != "200" ]; then
+  RL_REMAINING=$(tr -d '\r' < "$API_HEADERS" \
+                   | grep -i '^x-ratelimit-remaining:' | tail -1 | awk '{print $2}' || true)
+  RL_RESET=$(tr -d '\r' < "$API_HEADERS" \
+               | grep -i '^x-ratelimit-reset:' | tail -1 | awk '{print $2}' || true)
+  if { [ "$HTTP_CODE" = "403" ] || [ "$HTTP_CODE" = "429" ]; } && [ "${RL_REMAINING:-}" = "0" ]; then
+    RESET_AT="an unknown time"
+    RESET_IN="an unknown number of"
+    if [ -n "${RL_RESET:-}" ]; then
+      RESET_AT=$(date -u -d "@${RL_RESET}" '+%H:%M:%S UTC' 2>/dev/null || echo "an unknown time")
+      RESET_IN=$(( (RL_RESET - $(date +%s) + 59) / 60 ))
+      [ "$RESET_IN" -lt 0 ] && RESET_IN=0
+    fi
+    fail "GitHub API rate limit reached: HTTP ${HTTP_CODE} with X-RateLimit-Remaining: 0. Unauthenticated calls to api.github.com are capped at 60 per hour per IP address, and this machine has spent them all. The allowance resets at ${RESET_AT}, about ${RESET_IN} minute(s) from now. Wait for the reset, or export GITHUB_TOKEN=<token> and run this script again. This is a limit on the API calls made from this machine; ${PRODUCT} is not involved."
+  fi
+  fail "cannot reach ${API} (HTTP ${HTTP_CODE})"
+fi
 
 read -r TAG ASSET ARCHIVE_COUNT <<EOF
 $(python3 - "$RELEASE_JSON" <<'PY'
