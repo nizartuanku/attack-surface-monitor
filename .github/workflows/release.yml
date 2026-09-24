@@ -1,0 +1,96 @@
+# Builds the free-edition release and publishes it on GitHub.
+#
+# Trigger:  git tag vX.Y.Z && git push origin vX.Y.Z
+#
+# One linux/amd64 archive, built on a GitHub runner (static, CGO for SQLite,
+# pure-Go resolver) so it runs on any distribution. SHA256SUMS lists exactly the
+# assets published here, so `sha256sum -c SHA256SUMS` passes with no flags.
+# Paid builds (issuer public key baked in) are never produced here.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  BIN: asm
+  CMD: ./cmd/asm
+  ASSET_PREFIX: asm-free-
+  DIR_PREFIX: ""
+  LICENSE_SRC: LICENSE.txt
+  LICENSE_DST: LICENSE
+  TITLE: Attack Surface Monitor
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go vet ./... && go test -race -count=1 ./...
+
+      - name: Build and package
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          asset="${ASSET_PREFIX}${version}-linux-amd64.tar.gz"
+          mkdir -p dist/pkg
+          CGO_ENABLED=1 go build -trimpath \
+            -tags 'netgo osusergo sqlite_omit_load_extension' \
+            -ldflags '-s -w -linkmode external -extldflags "-static"' \
+            -o "dist/pkg/${BIN}" "${CMD}"
+          cp README.md dist/pkg/
+          cp "${LICENSE_SRC}" "dist/pkg/${LICENSE_DST}"
+          if [ -n "${DIR_PREFIX}" ]; then
+            d="${DIR_PREFIX}${version}"
+            mv dist/pkg "dist/${d}"
+            tar -C dist -czf "dist/${asset}" "${d}"
+          else
+            tar -C dist/pkg -czf "dist/${asset}" .
+          fi
+          (cd dist && sha256sum "${asset}" > SHA256SUMS && cat SHA256SUMS)
+          echo "ASSET=${asset}" >> "$GITHUB_ENV"
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/smoke && tar -C /tmp/smoke -xzf "dist/${ASSET}"
+          bin=$(find /tmp/smoke -type f -name "${BIN}" | head -1)
+          cd "$(dirname "$bin")"
+          { "./${BIN}" -h 2>&1 || true; } | grep -q -- '-ai-assist-url'
+          echo "binary runs and exposes -ai-assist-url"
+
+      - name: Release notes
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## ${version}" 'index($0,v)==1{f=1;next} /^## /{if(f)exit} f' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "### Install (free edition, Linux x86-64)"
+            echo
+            echo '```sh'
+            echo "curl -LO https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${ASSET}"
+            echo "curl -LO https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/SHA256SUMS"
+            echo "sha256sum -c SHA256SUMS"
+            echo "tar xzf ${ASSET}"
+            echo '```'
+            echo
+            echo "AI Assist is optional and off by default: see the \"AI Assist (optional)\" section of the README and https://github.com/nizartuanku/hexward-ai."
+          } >> notes.md
+          cat notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" "dist/${ASSET}" dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --title "${TITLE} ${version}" --notes-file notes.md --latest
