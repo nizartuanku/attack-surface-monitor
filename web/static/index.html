@@ -133,6 +133,20 @@
   .err { color: var(--critical); font-size: 13.5px; margin-top: 8px; }
   .okmsg { color: var(--good); font-size: 13.5px; margin-top: 8px; }
   footer { margin-top: 40px; font-size: 12.5px; color: var(--text-3); }
+  /* AI Assist ("Explain this finding"): styled apart from raw evidence so it
+     always reads as narration, never as a new fact from the engine. */
+  .aibtn { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+  .ai-explain {
+    margin-top: 8px; padding: 10px 12px; border-radius: 6px;
+    background: color-mix(in srgb, var(--accent) 7%, var(--surface-1));
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+    font-size: 13.5px; color: var(--text-2);
+  }
+  .ai-explain.muted { background: var(--surface-1); border-color: var(--border); font-style: italic; }
+  .ai-text { color: var(--text-1); }
+  .ai-verify { margin-top: 8px; }
+  .ai-verify ul { margin: 4px 0 0 18px; padding: 0; }
+  .ai-disclaimer { margin-top: 8px; font-size: 11.5px; color: var(--text-3); }
 </style>
 </head>
 <body>
@@ -280,8 +294,10 @@ function render(sum, findings, targets) {
           ${f.status === "open" ? `<button onclick="setStatus('${f.fingerprint}','acknowledged')">Acknowledge</button>` : ""}
           ${f.status !== "resolved" ? `<button onclick="setStatus('${f.fingerprint}','suppressed')">Suppress</button>` : ""}
           ${f.evidence ? `<button class="evbtn" onclick="toggleEv(this)">Details</button>` : ""}
+          ${aiEnabled ? aiButton(f) : ""}
         </div>
         ${f.evidence ? `<div class="evidence">${esc(JSON.stringify(f.evidence, null, 2))}</div>` : ""}
+        ${aiPanel(f)}
       </div>`).join("");
   }
 
@@ -364,6 +380,49 @@ function esc(s) { const d = document.createElement("div"); d.textContent = s ?? 
 
 refresh(); refreshLicense();
 setInterval(refresh, 10000);
+
+// --- AI Assist: "Explain this finding" ---------------------------------------
+// The engine behind /api/findings stays the only source of findings and
+// severity. This block only asks the optional hexward-ai sidecar to narrate a
+// finding already on screen; if AI Assist is off or unreachable the button is
+// hidden or a quiet note appears, and the finding itself never changes.
+var aiEnabled = false;
+var aiState = {}; // per fingerprint; survives the periodic refresh re-render
+fetch("/api/ai").then(r => r.json()).then(d => { aiEnabled = !!d.enabled; refresh(); }).catch(() => {});
+
+function aiButton(f) {
+  const st = aiState[f.fingerprint];
+  const busy = st && st.status === "loading";
+  return `<button class="aibtn" ${busy ? "disabled" : ""} onclick="explainFinding('${f.fingerprint}')">${busy ? "Explaining…" : "✨ Explain"}</button>`;
+}
+
+function aiPanel(f) {
+  const st = aiState[f.fingerprint];
+  if (!st) return "";
+  if (st.status === "loading")
+    return `<div class="ai-explain muted">Asking AI Assist to explain this finding. It runs on your own hardware and can take up to a minute.</div>`;
+  if (st.status !== "done")
+    return `<div class="ai-explain muted">${esc(st.message || "AI Assist is not reachable right now.")} The finding above is unaffected.</div>`;
+  const verify = (st.whatToVerify || []).length
+    ? `<div class="ai-verify"><b>What to verify:</b><ul>${st.whatToVerify.map(v => `<li>${esc(v)}</li>`).join("")}</ul></div>` : "";
+  return `<div class="ai-explain"><div class="ai-text">${esc(st.explanation)}</div>${verify}<div class="ai-disclaimer">${esc(st.disclaimer)}</div></div>`;
+}
+
+async function explainFinding(fingerprint) {
+  aiState[fingerprint] = { status: "loading" };
+  refresh();
+  try {
+    const r = await fetch("/api/findings/explain", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fingerprint }) });
+    const d = await r.json();
+    aiState[fingerprint] = d.available
+      ? { status: "done", explanation: d.explanation, whatToVerify: d.what_to_verify, disclaimer: d.disclaimer }
+      : { status: "unavailable", message: d.reason || d.error };
+  } catch (e) {
+    aiState[fingerprint] = { status: "error", message: "AI Assist request failed." };
+  }
+  refresh();
+}
 </script>
 </body>
 </html>
