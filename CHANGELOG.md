@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Docs: English is the supported AI Assist language in this release. Bahasa Indonesia
+  (`-ai-assist-lang id`) is an unsupported preview; more languages will be added based on demand.
+
 ## 0.1.2 — 2026-09-24
 
 - **AI Assist (optional): an ✨ Explain button on every finding.** When "Attack is started
