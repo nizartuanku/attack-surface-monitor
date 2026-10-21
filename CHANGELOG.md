@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+- Fix: the AI Assist environment variables and two README/CHANGELOG sentences were broken
+  by a find-and-replace mistake in the 0.1.2 AI Assist patch — `Surface_AI_ASSIST_URL` and
+  friends read `ASM_AI_ASSIST_URL` now (matching every other Hexward product), and the
+  garbled `"Attack ...` phrasing in README.md is corrected to `ASM ...`. The `-ai-assist-*`
+  flags themselves were never affected; only their environment-variable fallback names and
+  the prose around them were wrong.
 - Docs: English is the supported AI Assist language in this release. Bahasa Indonesia
   (`-ai-assist-lang id`) is an unsupported preview; more languages will be added based on demand.
 
 ## 0.1.2 — 2026-09-24
 
-- **AI Assist (optional): an ✨ Explain button on every finding.** When "Attack is started
+- **AI Assist (optional): an ✨ Explain button on every finding.** When ASM is started
   with `-ai-assist-url`, a local [hexward-ai](https://github.com/nizartuanku/hexward-ai) sidecar
   explains a finding in plain language and lists what to verify. The engine remains the only
   source of findings and severity. Only one sanitised finding is sent (secret-like evidence keys

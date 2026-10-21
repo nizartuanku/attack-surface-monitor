@@ -89,9 +89,9 @@ Available on every tier, free included.
 
 ## AI Assist (optional)
 
-"Attack can explain a finding in plain language with a small language model that runs on
+ASM can explain a finding in plain language with a small language model that runs on
 your own hardware. It is off by default. Turn it on by starting a
-[hexward-ai](https://github.com/nizartuanku/hexward-ai) sidecar and pointing "Attack at it:
+[hexward-ai](https://github.com/nizartuanku/hexward-ai) sidecar and pointing ASM at it:
 
 ```sh
 asm -ai-assist-url http://127.0.0.1:8435
@@ -100,7 +100,7 @@ asm -ai-assist-url http://127.0.0.1:8435
 Each finding then gets an **✨ Explain** button. The model writes what the finding means and
 what to verify before you act. It also gets a fixed disclaimer.
 
-- **The engine still decides.** The model receives one finding after "Attack has produced it.
+- **The engine still decides.** The model receives one finding after ASM has produced it.
   It cannot add, remove, re-score or close a finding. If the sidecar is off, slow or broken,
   the button shows a short note and nothing else changes.
 - **What leaves the process.** One finding: its check, title, target, severity, status,
@@ -121,8 +121,8 @@ what to verify before you act. It also gets a fixed disclaimer.
 - **Speed.** On a CPU-only machine an explanation takes about 15–50 seconds, depending on the
   model. Measurements are in hexward-ai's `docs/TIERS.md`.
 
-Environment equivalents: `Surface_AI_ASSIST_URL`, `Surface_AI_ASSIST_KEY_FILE`,
-`Surface_AI_ASSIST_LANG`, `Surface_AI_ASSIST_NO_THINKING=1`.
+Environment equivalents: `ASM_AI_ASSIST_URL`, `ASM_AI_ASSIST_KEY_FILE`,
+`ASM_AI_ASSIST_LANG`, `ASM_AI_ASSIST_NO_THINKING=1`.
 
 ## Honest limits
 
