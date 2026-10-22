@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.3 — 2026-10-22
 
 - Fix: the AI Assist environment variables and two README/CHANGELOG sentences were broken
   by a find-and-replace mistake in the 0.1.2 AI Assist patch — `Surface_AI_ASSIST_URL` and
