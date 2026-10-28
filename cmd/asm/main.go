@@ -28,6 +28,7 @@ import (
 	"github.com/nizartuanku/attack-surface-monitor/sched"
 	"github.com/nizartuanku/attack-surface-monitor/store"
 	"github.com/nizartuanku/attack-surface-monitor/web"
+	"github.com/nizartuanku/hexward-core/hfs"
 )
 
 // issuerPublicKeyB64 is baked in at build time by the release process.
@@ -38,11 +39,11 @@ var issuerPublicKeyB64 = ""
 // Team = unlimited. This overrides the license package's global defaults, which
 // are CertWatch's numbers.
 var asmTierLimits = map[license.Tier]license.Limits{
-	license.TierFree: {MaxTargets: 1, RetentionDays: 14, Channels: []string{"webhook", "syslog"}},
+	license.TierFree: {MaxTargets: 1, RetentionDays: 14, Channels: []string{"webhook", "syslog", "file", "splunk-hec"}},
 	license.TierPro: {MaxTargets: 10, RetentionDays: 365,
-		Channels: []string{"webhook", "syslog", "email", "slack", "telegram"}, CustomInterval: true, ScanNow: true},
+		Channels: []string{"webhook", "syslog", "file", "splunk-hec", "email", "slack", "telegram"}, CustomInterval: true, ScanNow: true},
 	license.TierTeam: {MaxTargets: 0, RetentionDays: 0,
-		Channels:  []string{"webhook", "syslog", "email", "slack", "telegram", "pagerduty", "teams"},
+		Channels:  []string{"webhook", "syslog", "file", "splunk-hec", "email", "slack", "telegram", "pagerduty", "teams"},
 		MultiUser: true, CustomInterval: true, ScanNow: true},
 }
 
@@ -50,9 +51,7 @@ func main() {
 	listen := flag.String("listen", "127.0.0.1:8423", "dashboard listen address")
 	dbPath := flag.String("db", "asm.db", "SQLite database path")
 	licFile := flag.String("license", "asm-license.key", "license key file")
-	webhook := flag.String("webhook", "", "webhook URL for notifications")
-	syslogAddr := flag.String("syslog", "", "syslog collector host:port for findings, e.g. 127.0.0.1:5514 (point this at Loglight to correlate across products)")
-	syslogNet := flag.String("syslog-network", "udp", "syslog transport: udp or tcp")
+	chf := registerChannelFlags(flag.CommandLine)
 	aiURL := flag.String("ai-assist-url", os.Getenv("ASM_AI_ASSIST_URL"), "optional hexward-ai sidecar URL for AI-narrated explanations, e.g. http://127.0.0.1:8435 (off when empty)")
 	aiKeyFile := flag.String("ai-assist-key-file", os.Getenv("ASM_AI_ASSIST_KEY_FILE"), "API key file for a dedicated AI host or your own OpenAI-compatible endpoint (Pro/Team)")
 	aiLang := flag.String("ai-assist-lang", os.Getenv("ASM_AI_ASSIST_LANG"), "language of AI explanations: en (default) or id")
@@ -95,6 +94,8 @@ func main() {
 		}
 	}
 	server := web.NewServer(module.Describe(), st, scheduler, pub, *licFile)
+	server.ExportMeta = hfs.Meta{Product: module.Describe().ID, Version: module.Describe().Version, Host: hostname()}
+	server.ExportEvidence = chf.evidenceMode()
 
 	aiAssist, aiErr := web.NewAIAssist(web.AIConfig{URL: *aiURL, KeyFile: *aiKeyFile, Language: *aiLang, NoThinking: *aiNoThinking})
 	if aiErr != nil {
@@ -109,12 +110,10 @@ func main() {
 	server.TierLimits = asmTierLimits
 	server.Verify = verifyStore
 
-	var channels []notify.Channel
-	if *webhook != "" {
-		channels = append(channels, &notify.WebhookChannel{URL: *webhook})
-	}
-	if *syslogAddr != "" {
-		channels = append(channels, &notify.SyslogChannel{Addr: *syslogAddr, Network: *syslogNet})
+	channels, chErr := chf.build(hfs.Meta{Product: module.Describe().ID, Version: module.Describe().Version, Host: hostname()})
+	if chErr != nil {
+		fmt.Fprintln(os.Stderr, "asm: "+chErr.Error())
+		os.Exit(2)
 	}
 	if len(channels) > 0 {
 		disp := notify.NewDispatcher(notify.Config{}, channels...)

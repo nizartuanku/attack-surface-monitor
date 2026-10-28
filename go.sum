@@ -1,2 +1,4 @@
 github.com/mattn/go-sqlite3 v1.14.49 h1:B8jBHC3xhxZgxztrgruTuLucebnULQnx4W7cF7SAE9w=
 github.com/mattn/go-sqlite3 v1.14.49/go.mod h1:6JTjA44L93a0QCyJef5YvlPoKXntQPjzWv5gtm9sB6w=
+github.com/nizartuanku/hexward-core v0.1.0 h1:PsSiv3iewsOttueXjjI0KKzuzeAclgd8D/6ijURrZbg=
+github.com/nizartuanku/hexward-core v0.1.0/go.mod h1:SdyLqaUcvQkB+RziEZx0ET1jSdGQp6ifMh7HpXLMZbQ=

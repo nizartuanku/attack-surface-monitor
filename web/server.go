@@ -19,10 +19,12 @@ import (
 	"time"
 
 	"github.com/nizartuanku/attack-surface-monitor/core"
+	"github.com/nizartuanku/attack-surface-monitor/hfsbridge"
 	"github.com/nizartuanku/attack-surface-monitor/license"
 	"github.com/nizartuanku/attack-surface-monitor/sched"
 	"github.com/nizartuanku/attack-surface-monitor/store"
 	"github.com/nizartuanku/attack-surface-monitor/verify"
+	"github.com/nizartuanku/hexward-core/hfs"
 )
 
 //go:embed static
@@ -30,9 +32,14 @@ var staticFS embed.FS
 
 // Server wires the dashboard over the running system.
 type Server struct {
-	Module    core.ModuleInfo // the product this binary ships
-	Store     store.Store
-	Scheduler *sched.Scheduler
+	Module core.ModuleInfo // the product this binary ships
+
+	// ExportMeta and ExportEvidence shape GET /api/findings/export, the
+	// Hexward Finding Schema snapshot a SIEM loads before live events.
+	ExportMeta     hfs.Meta
+	ExportEvidence hfs.EvidenceMode
+	Store          store.Store
+	Scheduler      *sched.Scheduler
 
 	// Targets, when set, persists target add/remove so a restart restores the
 	// user's configuration. nil = in-memory only (tests, ephemeral runs).
@@ -109,6 +116,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/findings", s.handleFindings)
+	mux.HandleFunc("GET /api/findings/export", s.handleFindingsExport)
 	mux.HandleFunc("POST /api/findings/status", s.handleFindingStatus)
 	mux.HandleFunc("GET /api/targets", s.handleListTargets)
 	mux.HandleFunc("POST /api/targets", s.handleAddTarget)
@@ -371,4 +379,37 @@ func httpError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// handleFindingsExport streams every current finding as a Hexward Finding
+// Schema snapshot (NDJSON), so a SIEM can load existing state before it
+// follows live events. Resolved findings older than a day are left out.
+func (s *Server) handleFindingsExport(w http.ResponseWriter, r *http.Request) {
+	if f := r.URL.Query().Get("format"); f != "" && f != "hfs" {
+		httpError(w, http.StatusBadRequest, "format must be hfs")
+		return
+	}
+	recs, err := s.Store.ListAll(s.Module.ID)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	meta := s.ExportMeta
+	if meta.Product == "" {
+		meta.Product = s.Module.ID
+		meta.Version = s.Module.Version
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="findings.hfs.ndjson"`)
+	now := time.Now()
+	for _, rec := range recs {
+		if rec.Status == core.StatusResolved && (rec.ResolvedAt == nil || now.Sub(*rec.ResolvedAt) > 24*time.Hour) {
+			continue
+		}
+		line, err := hfs.Marshal(hfs.New(hfs.KindSnapshot, meta, hfsbridge.Source(rec.Finding), now, hfs.Options{Evidence: s.ExportEvidence}))
+		if err != nil {
+			continue
+		}
+		w.Write(append(line, '\n'))
+	}
 }
