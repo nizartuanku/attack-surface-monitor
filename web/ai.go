@@ -173,6 +173,10 @@ func (s *Server) handleExplainFinding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	exp, err := s.AI.Client.Explain(r.Context(), packet)
+	if aiclient.IsRejected(err) {
+		writeJSON(w, explainResponse{Available: false, Reason: "AI Assist withheld this explanation: the model's answer was not grounded in the finding. The finding is unaffected."})
+		return
+	}
 	if err != nil {
 		writeJSON(w, explainResponse{Available: false, Reason: "The AI Assist sidecar did not answer. The finding is unaffected."})
 		return

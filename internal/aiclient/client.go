@@ -371,8 +371,8 @@ func (c *Client) Explain(ctx context.Context, evidence EvidencePacket) (*Explana
 
 		exp, err := c.doRequest(ctx, reqBody)
 		if err == nil {
-			if sev := findingSeverity(evidence); sev != "" {
-				exp.ExplanationText = dropConflictingSeverity(exp.ExplanationText, sev)
+			if gerr := applyOutputGuards(exp, findingSeverity(evidence)); gerr != nil {
+				return nil, gerr
 			}
 			exp.Disclaimer = CanonicalDisclaimer
 			return exp, nil

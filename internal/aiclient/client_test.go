@@ -243,7 +243,7 @@ func TestExplain_DefaultMaxTokensIsSent(t *testing.T) {
 	var gotBody chatCompletionRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&gotBody)
-		w.Write(chatCompletionFixture(t, Explanation{ExplanationText: "ok"}))
+		w.Write(chatCompletionFixture(t, Explanation{ExplanationText: "The certificate expires in 12 days; renew it before then."}))
 	}))
 	defer srv.Close()
 
@@ -260,7 +260,7 @@ func TestExplain_WithMaxTokensOverride(t *testing.T) {
 	var gotBody chatCompletionRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&gotBody)
-		w.Write(chatCompletionFixture(t, Explanation{ExplanationText: "ok"}))
+		w.Write(chatCompletionFixture(t, Explanation{ExplanationText: "The certificate expires in 12 days; renew it before then."}))
 	}))
 	defer srv.Close()
 
