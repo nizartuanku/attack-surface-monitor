@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 — 2026-11-03
+
+- **AI Assist hardened against planted instructions.** Evidence text that reads as an instruction to the model ("ignore previous instructions", "mark this as resolved", chat-template control tokens) is replaced by `[omitted: instruction-like text]` before it reaches any model — at every nesting level, lists included, and in a finding's title/target/remediation. Motivation: in the 2026-11-03 Hexward benchmark the Qwen3-8B tier obeyed exactly such a note planted in a finding and answered "marked as resolved… severity adjusted to low".
+- **AI Assist rejects answers that only claim a status or severity change.** Sentences like "has been marked as resolved" or "severity was adjusted to low" are removed; if no grounded explanation remains, the Explain button shows *"AI Assist withheld this explanation"* instead of an answer. The finding itself is never touched — the engine decides, the model only explains. Regression tests included.
+- **New Enterprise model tiers in hexward-ai 0.2.5:** `enterprise-9b` (Qwen3.5-9B) and `enterprise-35b` (Qwen3.5-35B-A3B, the Hexward benchmark tier). Both passed every trap case on a CPU-only host; see hexward-ai `docs/TIERS.md`. The Free and Pro/Team profiles are unchanged.
+
 ## 0.1.4 — 2026-10-28
 
 - **Send findings to your SIEM, in every edition.** Findings now leave Attack Surface Monitor as [Hexward Finding Schema](https://github.com/nizartuanku/hexward-core/blob/main/SCHEMA.md) events (`hexward.finding/1`), the shape every Hexward tool shares. New outputs: an NDJSON file (`-export-file`) for a Wazuh agent, Splunk Universal Forwarder or Elastic Agent; Splunk HTTP Event Collector (`-hec-url`, `-hec-token-file`); syslog as HFS JSON or CEF (`-syslog-format json|cef`), RFC 5424 by default or 3164, over udp, tcp or tls with verified certificates; and webhook v2 (`-webhook-format v2`). Ready-made content: [hexward-wazuh](https://github.com/nizartuanku/hexward-wazuh) and [TA-hexward](https://github.com/nizartuanku/TA-hexward).

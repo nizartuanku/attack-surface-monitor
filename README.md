@@ -153,7 +153,7 @@ what to verify before you act. It also gets a fixed disclaimer.
 - **Editions.** The free edition works with a sidecar on the same host. That is the `lab`
   profile, SmolLM3-3B. Pro and Team can also use one dedicated AI host for several products,
   or your own OpenAI-compatible endpoint, through `-ai-assist-key-file`. The recommended
-  profile there is `smb` (Phi-4-mini-instruct). Enterprise uses Qwen3 or your own endpoint.
+  profile there is `smb` (Phi-4-mini-instruct). Enterprise uses Qwen3.5 (9B, or 35B-A3B as the benchmark tier) or your own endpoint.
 - **Language.** English is the supported language in this release. `-ai-assist-lang id`
   (Bahasa Indonesia) remains as an unsupported preview. More languages will be added based on
   demand.
