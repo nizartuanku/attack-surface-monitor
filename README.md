@@ -176,5 +176,5 @@ Environment equivalents: `ASM_AI_ASSIST_URL`, `ASM_AI_ASSIST_KEY_FILE`,
 
 ## Built by
 
-Nizar Tuanku — Cybersecurity. Part of the Hexward line of self-hosted security tools.
+Nizar Tuanku — Cybersecurity Tools + AI. Part of the Hexward line of self-hosted security tools.
 Watch your certificates too? See [CertLight](https://whop.com/nizar-tuanku/certlight-tls-monitor?utm_source=github).
