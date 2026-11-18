@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **New licence keys start with `HXW1-`.** Keys issued before November 2026 start with `SNTL1-`; they carry the same signed payload and stay valid in this and every later release, with no action needed. Surrounding spaces or a trailing newline from copy-paste no longer make a key unreadable.
+
 ## 0.1.5 — 2026-11-03
 
 - **AI Assist hardened against planted instructions.** Evidence text that reads as an instruction to the model ("ignore previous instructions", "mark this as resolved", chat-template control tokens) is replaced by `[omitted: instruction-like text]` before it reaches any model — at every nesting level, lists included, and in a finding's title/target/remediation. Motivation: in the 2026-11-03 Hexward benchmark the Qwen3-8B tier obeyed exactly such a note planted in a finding and answered "marked as resolved… severity adjusted to low".

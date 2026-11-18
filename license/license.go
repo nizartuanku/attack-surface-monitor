@@ -16,9 +16,11 @@
 //
 // Key wire format:
 //
-//	SNTL1-<base64url(payload JSON)>.<base64url(ed25519 signature)>
+//	HXW1-<base64url(payload JSON)>.<base64url(ed25519 signature)>
 //
-// The "SNTL1" prefix versions the whole scheme; a future format bumps it.
+// The prefix versions the whole scheme. Keys issued before November 2026 carry
+// the legacy "SNTL1-" prefix with the same payload and signature, so Verify
+// accepts both, permanently: a key that has already shipped never breaks.
 package license
 
 import (
@@ -87,7 +89,21 @@ type License struct {
 	KeyID string `json:"key_id"`
 }
 
-const prefix = "SNTL1-"
+// prefix is what Sign emits; legacyPrefix keys stay valid forever.
+const (
+	prefix       = "HXW1-"
+	legacyPrefix = "SNTL1-"
+)
+
+// trimPrefix strips a supported key prefix; ok is false for anything else.
+func trimPrefix(key string) (body string, ok bool) {
+	for _, p := range [...]string{prefix, legacyPrefix} {
+		if rest, found := strings.CutPrefix(key, p); found {
+			return rest, true
+		}
+	}
+	return "", false
+}
 
 // --- issuing (seller side: runs on YOUR machine, never ships) ---------------
 
@@ -125,10 +141,11 @@ var (
 // On success it returns the License. All failures return an error; callers use
 // Activate for the never-brick fallback behaviour.
 func Verify(pub ed25519.PublicKey, product, key string, now time.Time) (License, error) {
-	if !strings.HasPrefix(key, prefix) {
+	body, ok := trimPrefix(strings.TrimSpace(key))
+	if !ok {
 		return License{}, ErrMalformed
 	}
-	parts := strings.SplitN(strings.TrimPrefix(strings.TrimSpace(key), prefix), ".", 2)
+	parts := strings.SplitN(body, ".", 2)
 	if len(parts) != 2 {
 		return License{}, ErrMalformed
 	}

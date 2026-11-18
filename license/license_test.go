@@ -179,3 +179,31 @@ func TestActivate_UnknownTierFloorsToFree(t *testing.T) {
 		t.Fatalf("unknown tier must get free limits: %+v", a.Limits)
 	}
 }
+
+// Keys issued before November 2026 carry SNTL1-. Both prefixes must verify,
+// forever; anything else is malformed.
+func TestLegacyPrefixStillVerifies(t *testing.T) {
+	pub, priv, err := GenerateKeypair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := Sign(priv, License{Product: "demo", Tier: TierPro, Email: "buyer@example.com",
+		IssuedAt: time.Now().Add(-time.Hour), ExpiresAt: time.Now().Add(24 * time.Hour), KeyID: "k1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(key, "HXW1-") {
+		t.Fatalf("Sign must emit HXW1-, got %.8q", key)
+	}
+	body := strings.TrimPrefix(key, "HXW1-")
+	for _, k := range []string{key, "SNTL1-" + body, "  SNTL1-" + body + "\n"} {
+		if _, err := Verify(pub, "demo", k, time.Now()); err != nil {
+			t.Fatalf("%.8q must verify: %v", k, err)
+		}
+	}
+	for _, k := range []string{"XYZ1-" + body, body, "HXW1-SNTL1-" + body} {
+		if _, err := Verify(pub, "demo", k, time.Now()); err == nil {
+			t.Fatalf("%.8q must be rejected", k)
+		}
+	}
+}
